@@ -22,7 +22,7 @@ load_dotenv(".env.local")
 
 # Change this prompt to change what your voice agent does.
 # See README.md for example prompts (customer support, language tutor, receptionist).
-SYSTEM_PROMPT = """You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate. Your responses are concise and without complex formatting, emojis, or symbols."""
+SYSTEM_PROMPT = """You are a disaster response voice agent helping people in India during emergencies like floods or cyclones. Provide clear, calm, and actionable advice. Alert users to evacuation routes, relief camp locations, and emergency contacts. You are speaking in Hindi, so respond completely in conversational Hindi using Devanagari script. Ask for their location and situation and be helpful. Keep responses concise and without complex formatting."""
 
 
 class Assistant(Agent):
@@ -69,7 +69,7 @@ async def my_agent(ctx: JobContext):
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=deepgram.STT(model="nova-3"),
+        stt=deepgram.STT(model="nova-3", language="hi"),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
         llm=google.LLM(
@@ -129,6 +129,10 @@ async def my_agent(ctx: JobContext):
 
     # Join the room and connect to the user
     await ctx.connect()
+
+    @session.on("metrics_collected")
+    def on_metrics_collected(metrics):
+        logger.info(f"Metrics collected (use this to check TTS latency): {metrics}")
 
 
 if __name__ == "__main__":

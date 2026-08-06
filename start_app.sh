@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH="/Users/mahajanyashsahebrao/.local/bin:$PATH"
+
 # Start all services in background
 if command -v livekit-server >/dev/null 2>&1; then
   livekit-server --dev &

@@ -33,20 +33,20 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Murf AI',
-  pageTitle: 'Voice Agent Starter',
-  pageDescription: 'A voice agent powered by Murf Falcon — the fastest TTS API',
+  companyName: 'Disaster Response Coordinator',
+  pageTitle: 'Disaster Response Agent',
+  pageDescription: 'An AI voice agent for coordinating disaster relief and emergency info.',
 
   supportsChatInput: true,
   supportsVideoInput: true,
   supportsScreenShare: true,
   isPreConnectBufferEnabled: true,
 
-  logo: '/murf-logo.svg',
-  accent: '#6366F1',
-  logoDark: '/murf-logo-dark.svg',
-  accentDark: '#818cf8',
-  startButtonText: 'Start talking',
+  logo: '/logo.png',
+  accent: '#0ea5e9', // Disaster response blue
+  logoDark: '/logo.png',
+  accentDark: '#38bdf8',
+  startButtonText: 'Connect to Emergency Services',
 
   // optional: audio visualization configuration
   // audioVisualizerType: 'bar',
@@ -62,7 +62,7 @@ export const APP_CONFIG_DEFAULTS: AppConfig = {
   // audioVisualizerGridColumnCount: 25,
   // audioVisualizerType: 'wave',
   // audioVisualizerWaveLineWidth: 3,
-  // audioVisualizerType: 'aura',
+  audioVisualizerType: 'aura',
 
   // agent dispatch configuration
   agentName: process.env.AGENT_NAME ?? undefined,
