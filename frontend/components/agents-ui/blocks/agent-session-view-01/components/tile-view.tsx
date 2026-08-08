@@ -92,7 +92,7 @@ export function TileLayout({
   audioVisualizerGridColumnCount,
   audioVisualizerWaveLineWidth,
 }: TileLayoutProps) {
-  const { videoTrack: agentVideoTrack } = useVoiceAssistant();
+  const { state, videoTrack: agentVideoTrack } = useVoiceAssistant();
   const [screenShareTrack] = useTracks([Track.Source.ScreenShare]);
   const cameraTrack: TrackReference | undefined = useLocalTrackRef(Track.Source.Camera);
 
@@ -152,11 +152,39 @@ export function TileLayout({
                     isChatOpen={chatOpen}
                     className={cn(
                       'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-                      'bg-background rounded-[50px] border border-transparent transition-[border,drop-shadow]',
-                      chatOpen && 'border-input shadow-2xl/10 delay-200'
+                      'transition-[drop-shadow]',
+                      chatOpen && 'shadow-2xl/10 delay-200'
                     )}
                     style={{ color: audioVisualizerColor }}
                   />
+
+                  {/* Dynamic Status Indicator */}
+                  {!chatOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="absolute left-1/2 top-1/2 mt-[140px] md:mt-[200px] -translate-x-1/2 text-center z-50"
+                    >
+                      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-1.5 backdrop-blur-md">
+                        <span
+                          className={cn(
+                            'size-2 rounded-full animate-pulse',
+                            state === 'speaking' ? 'bg-red-500' : state === 'listening' ? 'bg-green-500' : 'bg-yellow-500'
+                          )}
+                        />
+                        <span className="font-mono text-xs uppercase tracking-widest text-gray-300 whitespace-nowrap">
+                          {state === 'speaking'
+                            ? 'Rakshika is speaking...'
+                            : state === 'listening'
+                              ? 'Listening to you...'
+                              : state === 'thinking'
+                                ? 'Thinking...'
+                                : 'Idle'}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
 

@@ -155,6 +155,37 @@ export interface AgentSessionView_01Props {
   className?: string;
 }
 
+function LiveSubtitles({ text, isAgent, messageId }: { text: string; isAgent: boolean; messageId: string }) {
+  if (!text) return null;
+  const words = text.split(' ');
+  
+  return (
+    <motion.div 
+      key={messageId}
+      className="absolute bottom-[20%] md:bottom-40 left-1/2 -translate-x-1/2 w-full max-w-4xl px-6 text-center z-40 pointer-events-none"
+    >
+      <p
+        className={cn(
+          "text-2xl font-semibold tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] leading-relaxed",
+          isAgent ? "text-white" : "text-red-400"
+        )}
+      >
+        {words.map((word, index) => (
+          <motion.span
+            key={index}
+            initial={{ opacity: 0, y: 10, filter: "blur(8px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="inline-block mr-[0.3em]"
+          >
+            {word}
+          </motion.span>
+        ))}
+      </p>
+    </motion.div>
+  );
+}
+
 export function AgentSessionView_01({
   preConnectMessage = 'Agent is listening, ask it a question',
   supportsChatInput = true,
@@ -189,14 +220,14 @@ export function AgentSessionView_01({
     screenShare: supportsScreenShare,
   };
 
-  useEffect(() => {
-    const lastMessage = messages.at(-1);
-    const lastMessageIsLocal = lastMessage?.from?.isLocal === true;
+  const lastMessage = messages.at(-1);
+  const lastMessageIsLocal = lastMessage?.from?.isLocal === true;
 
+  useEffect(() => {
     if (scrollAreaRef.current && lastMessageIsLocal) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, lastMessageIsLocal]);
 
   return (
     <section
@@ -204,6 +235,21 @@ export function AgentSessionView_01({
       className={cn('bg-background relative z-10 h-full w-full overflow-hidden', className)}
       {...props}
     >
+      {/* ── Glowing Glassmorphic Background ── */}
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+        aria-hidden
+      >
+        <div
+          className="absolute size-[600px] -translate-x-1/4 -translate-y-1/4 rounded-full bg-red-600/20 blur-[120px] animate-pulse"
+          style={{ animationDuration: '6s' }}
+        />
+        <div
+          className="absolute size-[500px] translate-x-1/3 translate-y-1/4 rounded-full bg-blue-600/20 blur-[140px] animate-pulse"
+          style={{ animationDuration: '8s' }}
+        />
+      </div>
+
       <Fade top className="absolute inset-x-4 top-0 z-10 h-40" />
       {/* transcript */}
 
@@ -236,6 +282,12 @@ export function AgentSessionView_01({
         audioVisualizerGridColumnCount={audioVisualizerGridColumnCount}
         audioVisualizerWaveLineWidth={audioVisualizerWaveLineWidth}
       />
+
+      {/* Live Animated Subtitles */}
+      {!chatOpen && lastMessage?.message && (
+        <LiveSubtitles text={lastMessage.message} isAgent={!lastMessageIsLocal} messageId={lastMessage.id} />
+      )}
+
       {/* Bottom */}
       <motion.div
         {...BOTTOM_VIEW_MOTION_PROPS}

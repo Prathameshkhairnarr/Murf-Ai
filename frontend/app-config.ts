@@ -33,36 +33,25 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Disaster Response Coordinator',
-  pageTitle: 'Disaster Response Agent',
-  pageDescription: 'An AI voice agent for coordinating disaster relief and emergency info.',
+  companyName: 'Rakshika — NDRF Emergency Assistant',
+  pageTitle: 'Rakshika | Emergency Assistant',
+  pageDescription: 'AI-powered disaster response voice assistant for India. Helping during floods, cyclones, earthquakes and fires.',
 
-  supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
+  supportsChatInput: false,
+  supportsVideoInput: false,
+  supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
   logo: '/logo.png',
-  accent: '#0ea5e9', // Disaster response blue
+  accent: '#dc2626',       // Emergency red
   logoDark: '/logo.png',
-  accentDark: '#38bdf8',
-  startButtonText: 'Connect to Emergency Services',
+  accentDark: '#ef4444',   // Bright red for dark mode
+  startButtonText: 'Start Emergency Call',
 
-  // optional: audio visualization configuration
-  // audioVisualizerType: 'bar',
-  // audioVisualizerColor: '#002cf2',
-  // audioVisualizerColorDark: '#1fd5f9',
-  // audioVisualizerColorShift: 0.3,
-  // audioVisualizerBarCount: 5,
-  // audioVisualizerType: 'radial',
-  // audioVisualizerRadialBarCount: 24,
-  // audioVisualizerRadialRadius: 100,
-  // audioVisualizerType: 'grid',
-  // audioVisualizerGridRowCount: 25,
-  // audioVisualizerGridColumnCount: 25,
-  // audioVisualizerType: 'wave',
-  // audioVisualizerWaveLineWidth: 3,
+  // Emergency red aura visualizer
   audioVisualizerType: 'aura',
+  audioVisualizerColor: '#dc2626',
+  audioVisualizerColorDark: '#ef4444',
 
   // agent dispatch configuration
   agentName: process.env.AGENT_NAME ?? undefined,

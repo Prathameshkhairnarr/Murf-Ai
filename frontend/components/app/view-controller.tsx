@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { AnimatePresence, motion } from 'motion/react';
 import { useSessionContext } from '@livekit/components-react';
@@ -12,19 +13,15 @@ const MotionSessionView = motion.create(AgentSessionView_01);
 
 const VIEW_MOTION_PROPS = {
   variants: {
-    visible: {
-      opacity: 1,
-    },
-    hidden: {
-      opacity: 0,
-    },
+    visible: { opacity: 1 },
+    hidden: { opacity: 0 },
   },
   initial: 'hidden',
   animate: 'visible',
   exit: 'hidden',
   transition: {
-    duration: 0.5,
-    ease: 'linear',
+    duration: 0.4,
+    ease: 'easeInOut',
   },
 };
 
@@ -35,19 +32,30 @@ interface ViewControllerProps {
 export function ViewController({ appConfig }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
   const { resolvedTheme } = useTheme();
+  // Track if there has been a completed session (to show "Call Ended" state)
+  const [hasHadSession, setHasHadSession] = useState(false);
+
+  // Track if they have connected at least once
+  useEffect(() => {
+    if (isConnected) {
+      setHasHadSession(true);
+    }
+  }, [isConnected]);
 
   return (
     <AnimatePresence mode="wait">
-      {/* Welcome view */}
+      {/* Welcome / Call Ended view */}
       {!isConnected && (
         <MotionWelcomeView
           key="welcome"
           {...VIEW_MOTION_PROPS}
           startButtonText={appConfig.startButtonText}
           onStartCall={start}
+          callEnded={hasHadSession}
         />
       )}
-      {/* Session view */}
+
+      {/* Active session view — shows Listening / Speaking states via audio visualizer */}
       {isConnected && (
         <MotionSessionView
           key="session-view"

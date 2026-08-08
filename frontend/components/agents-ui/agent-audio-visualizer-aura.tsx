@@ -176,6 +176,17 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     color = (-pp + bloom * 3.0 * uBloom) * 1.2;
     color += (randFibo(fragCoord).x - 0.5) / 255.0;
     color = Tonemap(color);
+    
+    // Calculate angle for dynamic gradient
+    float angle = atan(pos.y, pos.x);
+    
+    // Mix primary color with a glowing warm gold/orange based on rotation
+    vec3 secondaryColor = vec3(1.0, 0.7, 0.1); 
+    float mixFactor = sin(angle * 2.0 + iTime) * 0.5 + 0.5;
+    
+    // Apply the gradient map to the generated color
+    color = mix(color, color * secondaryColor * 2.5, mixFactor);
+    
     float alpha = luma(color) * uMix;
     fragColor = vec4(color * uMix, alpha);
   }
