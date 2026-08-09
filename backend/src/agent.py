@@ -1,4 +1,6 @@
 import logging
+import sys
+import io
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -12,22 +14,64 @@ from livekit.agents import (
     inference,
     tokenize,
     room_io,
+    function_tool,
+    RunContext,
 )
+import sqlite3
+import json
+from datetime import datetime
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
+# Setup File Logging for debugging
+file_handler = logging.FileHandler("agent_debug.log", encoding="utf-8")
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logging.getLogger().addHandler(file_handler)
+
 logger = logging.getLogger("agent")
+logging.getLogger("livekit.agents").setLevel(logging.DEBUG)
 
 load_dotenv(".env.local")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Day 2 — Rakshika: Disaster Response Voice Agent
+# Day 4 — Rakshika: Disaster Response Voice Agent with Memory
 # Topic: Disaster Response (India — floods, cyclones, earthquakes, fires)
 # ─────────────────────────────────────────────────────────────────────────────
+
+DB_PATH = "callers.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS callers (
+            user_id TEXT PRIMARY KEY,
+            name TEXT,
+            language_preference TEXT,
+            facts TEXT,
+            last_interaction TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
 SYSTEM_PROMPT = """
 IDENTITY
 Tumhara naam Rakshika (रक्षिका) hai — NDRF (National Disaster Response Force) ki taraf se deploy kiya gaya ek disaster response voice assistant. Tum logon ki madad karte ho active emergencies mein — floods, cyclones, earthquakes, aur fires ke dauran.
 CRITICAL RULE: Apna naam hamesha 'रक्षिका' (Rakshika) hi bolna, galti se bhi 'रक्षा' (Raksha) mat bolna.
+
+MEMORY & RETRIEVAL (DAY 4)
+Tumhare paas 2 TOOLS hain: 'lookup_caller' aur 'save_caller_info'.
+1. Jab caller connect kare, pehle unka naam ya phone number poocho.
+2. Jab caller apna naam ya number bataye, toh tumhara SABSE PEHLA kaam hai 'lookup_caller' TOOL ko execute karna. (Bina tool chalaye unhe directly jawab mat dena. Tool chalao, aur fir uske result ke hisaab se aage ki baat karo).
+3. Agar caller returning hai, toh unhe naam se greet karo aur past reference do (e.g., "नमस्ते रमेश, पिछली बार आपने बताया था...").
+4. Agar caller naya hai, toh unki location, household size, mobility needs aadi collect karo.
+5. CRITICAL: Save karne se PEHLE unse permission lo: "मैं आपकी जानकारी सेव कर रही हूँ ताकि अगली बार मदद मिल सके। क्या आप सहमत हैं?"
+6. Jab caller 'Haan' bole, toh LAZMI 'save_caller_info' TOOL ko execute karo! Tool trigger karne ke baad unhe confirm karo (bol kar) ki data save ho gaya hai, aur unke sawalon ka jawab do.
+7. MEGA CRITICAL: Tools ('lookup_caller' aur 'save_caller_info') ke arguments (jaise user_id, name, facts) HAMESHA English/Roman letters mein dena. Devanagari (Hindi letters) arguments mein BHOOL KAR BHI MAT DENA, system crash ho jayega! (Example: user_id="Ramesh" use karo, "रमेश" nahi).
 
 OBJECTIVES
 Ek successful call mein teen cheezein honi chahiye:
@@ -49,7 +93,7 @@ Tum ek FEMALE assistant ho. Hamesha Devanagari script mein likho (Hindi letters 
 Feminine forms use karo hamesha:
 - "मैं मदद कर सकती हूँ" (sakti, NOT sakta)
 - "मैं नहीं जानती" (jaanti, NOT jaanta)
-User Hindi bolein toh shuddh Hindi Devanagari mein jawab do. User English bolein toh English mein jawab do. Har sentence chhoti rakho — 15 words se zyada nahi. Lists ya bullet points bilkul mat bolo — sirf natural bolchaal.
+User Hindi bolein toh shuddh Hindi Devanagari mein jawab do. (Agar TOOLS se English mein facts milte hain, toh unhe bhi Hindi Devanagari mein translate karke hi bolna). User English bolein toh bhi koshish karo ki Hindi Devanagari mein hi jawab do. Har sentence chhoti rakho — 15 words se zyada nahi. Lists ya bullet points bilkul mat bolo — sirf natural bolchaal.
 
 GUARDRAILS
 Hard refusals:
@@ -67,10 +111,10 @@ Agar kisi ki jaan turant khatre mein ho, toh PEHLE yeh kaho: "Abhi 112 pe call k
 STYLE
 - Phone numbers ko hamesha ek ek digit karke bolo. Jaise "1-1-2" ko "ek, ek, do" bolo. Kabhi bhi "ek sau barah" ya "unsat hazar" mat bolo.
 - Har sentence chhoti rakho.
-- No lists, no brackets — sirf natural bolchaal.
+- No lists, no brackets, NO MARKDOWN (no asterisks ** or bold text) — sirf natural bolchaal. Text ekdum plain hona chahiye.
 - Agar user chup ho jaaye toh gently poocho: "क्या आप सुन पा रहे हैं? बताइए, मैं यहाँ हूँ।"
 - Calm, direct aur warm raho.
-- Pehli turn ki greeting (EXACTLY yahi bolo): "नमस्ते। मैं रक्षिका हूँ, NDRF की emergency voice assistant। आप अभी कहाँ हैं, और क्या हो रहा है?"
+- Pehli turn ki greeting (EXACTLY yahi bolo): "नमस्ते। मैं रक्षिका हूँ, NDRF की emergency voice assistant। क्या हम पहले बात कर चुके हैं? आपका नाम या फोन नंबर क्या है?"
 """
 
 
@@ -78,22 +122,50 @@ class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+    @function_tool
+    async def lookup_caller(self, context: RunContext, user_id: str):
+        """Use this tool to look up a caller's previous information using their user_id (like phone number or name).
+        
+        Args:
+            user_id: The unique identifier for the caller (phone number or name).
+        """
+        logger.info(f"Looking up caller {user_id}")
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, language_preference, facts, last_interaction FROM callers WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            name, lang, facts, last_int = row
+            return f"Found caller! Name: {name}, Language: {lang}, Facts: {facts}, Last interaction: {last_int}. Greet them by name and mention their past context."
+        return "No record found for this user_id. This is a new caller."
+
+    @function_tool
+    async def save_caller_info(self, context: RunContext, user_id: str, name: str, language_preference: str, facts: str):
+        """Use this tool to save or update information about a caller ONLY AFTER asking for their permission.
+        
+        Args:
+            user_id: The unique identifier for the caller (e.g. phone number or name).
+            name: The caller's name.
+            language_preference: The caller's preferred language.
+            facts: A short text summary of key facts (e.g., location, household size).
+        """
+        logger.info(f"Saving info for {user_id}")
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cursor.execute('''
+            INSERT INTO callers (user_id, name, language_preference, facts, last_interaction)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                name=excluded.name,
+                language_preference=excluded.language_preference,
+                facts=excluded.facts,
+                last_interaction=excluded.last_interaction
+        ''', (user_id, name, language_preference, facts, now))
+        conn.commit()
+        conn.close()
+        return "Caller information saved successfully."
 
 
 server = AgentServer()
@@ -140,7 +212,7 @@ async def my_agent(ctx: JobContext):
         vad=ctx.proc.userdata["vad"],
         # allow the LLM to generate a response while waiting for the end of turn
         # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
-        preemptive_generation=True,
+        preemptive_generation=False,
     )
 
     # To use a realtime model instead of a voice pipeline, use the following session setup instead.
@@ -182,7 +254,7 @@ async def my_agent(ctx: JobContext):
 
     # First-turn greeting in Devanagari — hi-IN-namrita (native Hindi voice) pronounces this perfectly
     await session.generate_reply(
-        instructions="You are Rakshika, a female assistant. Say this greeting EXACTLY in Devanagari Hindi: 'नमस्ते। मैं रक्षिका हूँ, NDRF की emergency voice assistant। आप अभी कहाँ हैं, और क्या हो रहा है?' Write only in Devanagari script."
+        instructions="You are Rakshika, a female assistant. Say this greeting EXACTLY in Devanagari Hindi: 'नमस्ते। मैं रक्षिका हूँ, NDRF की emergency voice assistant। क्या हम पहले बात कर चुके हैं? आपका नाम या फोन नंबर क्या है?' Write only in Devanagari script."
     )
 
     @session.on("metrics_collected")
