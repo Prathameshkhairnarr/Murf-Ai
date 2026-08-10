@@ -1,6 +1,7 @@
 import logging
 import sys
 import io
+import aiohttp
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -64,14 +65,25 @@ Tumhara naam Rakshika (रक्षिका) hai — NDRF (National Disaster Re
 CRITICAL RULE: Apna naam hamesha 'रक्षिका' (Rakshika) hi bolna, galti se bhi 'रक्षा' (Raksha) mat bolna.
 
 MEMORY & RETRIEVAL (DAY 4)
-Tumhare paas 2 TOOLS hain: 'lookup_caller' aur 'save_caller_info'.
+Tumhare paas 5 TOOLS hain: 'lookup_caller', 'save_caller_info', 'check_weather_alert', 'check_earthquake', aur 'find_nearest_hospital'.
 1. Jab caller connect kare, pehle unka naam ya phone number poocho.
 2. Jab caller apna naam ya number bataye, toh tumhara SABSE PEHLA kaam hai 'lookup_caller' TOOL ko execute karna. (Bina tool chalaye unhe directly jawab mat dena. Tool chalao, aur fir uske result ke hisaab se aage ki baat karo).
+2a. Agar caller mausam (weather), flood, ya kisi safety alert ke baare mein pooche toh 'check_weather_alert' TOOL ka use karo (is tool mein district ka naam pass karna hoga).
+2b. Agar caller bhukamp (earthquake) ke baare mein pooche toh 'check_earthquake' TOOL ka use karo.
+2c. Agar caller hospital, medical help, chot, ya clinic ke baare mein kuch bhi pooche toh SEEDHA 'find_nearest_hospital' TOOL CALL karo. KABHI BHI apni memory se hospital ka naam mat batao — hamesha tool call karo aur tool ka result bol do. IMPORTANT: Injury ke hisaab se injury_type argument pass karo:
+   - "hath tuta", "per tuta", "haddi tuti", "bone", "fracture", "toot gaya" → injury_type="fracture"
+   - "sir mein chot", "behoshi", "paralysis", "brain", "neuro", "sir dard" → injury_type="neuro"
+   - "aag se jala", "chemical", "burn", "jal gaya" → injury_type="burn"
+   - "seene mein dard", "heart attack", "cardiac", "dil" → injury_type="cardiac"
+   - "badi chot", "accident", "trauma", "bahut chot" → injury_type="trauma"
+   - Baki sab → injury_type="general"
+FORBIDDEN: Kisi bhi hospital ka naam khud se mat batao. HAMESHA tool call karo pehle.
+2d. Agar tumhe caller ka district pehle se pata hai (kyuki tumne lookup_caller se facts nikaala hai), toh unse wapas district mat poocho, direct tools (weather/earthquake/hospital) chala do!
 3. Agar caller returning hai, toh unhe naam se greet karo aur past reference do (e.g., "नमस्ते रमेश, पिछली बार आपने बताया था...").
 4. Agar caller naya hai, toh unki location, household size, mobility needs aadi collect karo.
 5. CRITICAL: Save karne se PEHLE unse permission lo: "मैं आपकी जानकारी सेव कर रही हूँ ताकि अगली बार मदद मिल सके। क्या आप सहमत हैं?"
 6. Jab caller 'Haan' bole, toh LAZMI 'save_caller_info' TOOL ko execute karo! Tool trigger karne ke baad unhe confirm karo (bol kar) ki data save ho gaya hai, aur unke sawalon ka jawab do.
-7. MEGA CRITICAL: Tools ('lookup_caller' aur 'save_caller_info') ke arguments (jaise user_id, name, facts) HAMESHA English/Roman letters mein dena. Devanagari (Hindi letters) arguments mein BHOOL KAR BHI MAT DENA, system crash ho jayega! (Example: user_id="Ramesh" use karo, "रमेश" nahi).
+7. MEGA CRITICAL: Tools ('lookup_caller', 'save_caller_info', 'check_weather_alert', 'check_earthquake', 'find_nearest_hospital') ke arguments (jaise user_id, name, facts, district) HAMESHA English/Roman letters mein dena. Devanagari (Hindi letters) arguments mein BHOOL KAR BHI MAT DENA, system crash ho jayega! (Example: district="Mumbai" use karo, "मुंबई" nahi).
 
 OBJECTIVES
 Ek successful call mein teen cheezein honi chahiye:
@@ -166,6 +178,235 @@ class Assistant(Agent):
         conn.commit()
         conn.close()
         return "Caller information saved successfully."
+
+    @function_tool
+    async def check_weather_alert(self, context: RunContext, district: str):
+        """Use this tool to check the real-time weather and flood alert status for a given district.
+        
+        Args:
+            district: The name of the district/city (e.g., 'Mumbai', 'Delhi', 'Chennai').
+        """
+        logger.info(f"Checking weather alert for {district}")
+        
+        # Geocoding to get lat/long
+        geocode_url = f"https://geocoding-api.open-meteo.com/v1/search?name={district}&count=1&language=en&format=json"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(geocode_url, timeout=5) as geo_resp:
+                    if geo_resp.status != 200:
+                        return "API Down: Geocoding failed. Tell the user in Hindi: 'सर्वर डाउन होने के कारण मैं अभी मौसम की जानकारी नहीं दे पा रही हूँ।'"
+                    
+                    geo_data = await geo_resp.json()
+                    
+                    if not geo_data.get("results"):
+                        return f"Location not found. Tell the user in Hindi that you couldn't find weather data for {district}."
+                        
+                    lat = geo_data["results"][0]["latitude"]
+                    lon = geo_data["results"][0]["longitude"]
+                    
+                weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,precipitation,weather_code,wind_speed_10m"
+                
+                async with session.get(weather_url, timeout=5) as weather_resp:
+                    if weather_resp.status != 200:
+                        return "API Down: Weather fetch failed. Tell the user in Hindi: 'सर्वर डाउन होने के कारण मैं अभी मौसम की जानकारी नहीं दे पा रही हूँ।'"
+                    
+                    weather_data = await weather_resp.json()
+                    current = weather_data.get("current", {})
+                    temp = current.get("temperature_2m", 0)
+                    precip = current.get("precipitation", 0)
+                    wind = current.get("wind_speed_10m", 0)
+                    
+                    # Compute logic
+                    alert_status = "No active alert. The weather is normal."
+                    if precip > 10:
+                        alert_status = "High rainfall alert! Risk of flooding."
+                    elif wind > 40:
+                        alert_status = "High wind alert! Cyclone warning."
+                        
+                    return (
+                        f"Real-time Data for {district}:\n"
+                        f"Temperature: {temp}°C\n"
+                        f"Precipitation (Rain): {precip} mm\n"
+                        f"Wind Speed: {wind} km/h\n"
+                        f"Status: {alert_status}\n"
+                        f"Instructions: Speak this data naturally in Hindi Devanagari. Mention that this is real-time live data."
+                    )
+        except Exception as e:
+            logger.error(f"Weather API error: {e}")
+            return "API Timeout/Error. Tell the user in Hindi: 'माफ़ करना, नेटवर्क समस्या के कारण मैं अभी मौसम का डेटा नहीं ला पा रही हूँ।'"
+
+    @function_tool
+    async def check_earthquake(self, context: RunContext, district: str):
+        """Use this tool to check for recent earthquakes near a given district.
+        
+        Args:
+            district: The name of the district/city (e.g., 'Delhi', 'Mumbai', 'Kathmandu').
+        """
+        logger.info(f"Checking earthquake for {district}")
+        
+        # Geocoding to get lat/long
+        geocode_url = f"https://geocoding-api.open-meteo.com/v1/search?name={district}&count=1&language=en&format=json"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(geocode_url, timeout=5) as geo_resp:
+                    if geo_resp.status != 200:
+                        return "API Down: Geocoding failed. Tell the user in Hindi: 'सर्वर डाउन होने के कारण मैं अभी भूकंप की जानकारी नहीं दे पा रही हूँ।'"
+                    
+                    geo_data = await geo_resp.json()
+                    
+                    if not geo_data.get("results"):
+                        return f"Location not found. Tell the user in Hindi that you couldn't find data for {district}."
+                        
+                    lat = geo_data["results"][0]["latitude"]
+                    lon = geo_data["results"][0]["longitude"]
+                
+                # Check earthquakes in last 7 days within 300km
+                # USGS API
+                start_date = (datetime.now().timestamp() - (7 * 24 * 60 * 60))
+                start_str = datetime.fromtimestamp(start_date).strftime('%Y-%m-%d')
+                usgs_url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude={lat}&longitude={lon}&maxradiuskm=300&starttime={start_str}"
+                
+                async with session.get(usgs_url, timeout=10) as usgs_resp:
+                    if usgs_resp.status != 200:
+                        return "API Down: Earthquake fetch failed. Tell the user in Hindi: 'सर्वर डाउन होने के कारण मैं अभी भूकंप की जानकारी नहीं दे पा रही हूँ।'"
+                    
+                    usgs_data = await usgs_resp.json()
+                    features = usgs_data.get("features", [])
+                    
+                    if not features:
+                        return f"No recent earthquakes found near {district} in the last 7 days. Tell the user in Hindi that the area is safe from recent earthquakes."
+                        
+                    # Find the strongest one
+                    strongest = max(features, key=lambda x: x["properties"].get("mag", 0))
+                    props = strongest["properties"]
+                    mag = props.get("mag")
+                    place = props.get("place")
+                    time_ms = props.get("time")
+                    time_str = datetime.fromtimestamp(time_ms / 1000.0).strftime('%Y-%m-%d %H:%M:%S') if time_ms else "Recent"
+                    
+                    return (
+                        f"Real-time Earthquake Data for {district}:\n"
+                        f"Magnitude: {mag} on Richter scale\n"
+                        f"Epicenter: {place}\n"
+                        f"Time: {time_str}\n"
+                        f"Instructions: Speak this data naturally in Hindi Devanagari (including date and time). Warn them about the magnitude if it's > 5.0."
+                    )
+        except Exception as e:
+            logger.error(f"Earthquake API error: {e}")
+            return "API Timeout/Error. Tell the user in Hindi: 'माफ़ करना, नेटवर्क समस्या के कारण मैं अभी भूकंप का डेटा नहीं ला पा रही हूँ।'"
+
+    @function_tool
+    async def find_nearest_hospital(self, context: RunContext, district: str, injury_type: str = "general"):
+        """Use this tool to find the nearest hospital best suited for the caller's injury type.
+        
+        Args:
+            district: The name of the district/city (e.g., 'Delhi', 'Mumbai', 'Nashik').
+            injury_type: The type of injury or medical need. Use one of: 'fracture' (for broken bones/per tuta/hath tuta), 
+                         'neuro' (for head injury, paralysis, brain issues), 'burn' (for fire/chemical burns), 
+                         'cardiac' (for heart attack/chest pain), 'trauma' (for accident/major injury), 
+                         'general' (for minor injuries or unknown).
+        """
+        logger.info(f"Finding {injury_type} hospital for {district}")
+        
+        # Map injury type to a search keyword
+        specialty_map = {
+            "fracture": "orthopedic hospital",
+            "neuro": "neurology hospital",
+            "burn": "burn hospital",
+            "cardiac": "cardiac hospital",
+            "trauma": "trauma center hospital",
+            "general": "hospital",
+        }
+        keyword = specialty_map.get(injury_type.lower(), "hospital")
+        maps_link = f"https://www.google.com/maps/search/{keyword.replace(' ', '+')}+in+{district}"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                headers = {"User-Agent": "DisasterResponseAgent/1.0 (hackathon project)"}
+                
+                async def fetch_hospitals(query_keyword: str):
+                    """Helper to fetch + deduplicate hospitals, filtering irrelevant specialties."""
+                    nom_url = f"https://nominatim.openstreetmap.org/search?format=json&q={query_keyword.replace(' ', '+')}+in+{district}&limit=15"
+                    async with session.get(nom_url, headers=headers, timeout=10) as resp:
+                        if resp.status != 200:
+                            return None
+                        data = await resp.json()
+                        
+                        # Keywords to EXCLUDE if injury_type is NOT those specialties
+                        exclude_map = {
+                            "fracture": ["eye", "ophthalm", "dental", "skin", "cancer", "maternity", "gynae", "gynaec", "children", "child", "paediatr"],
+                            "neuro":    ["eye", "ophthalm", "dental", "skin", "cancer", "maternity", "gynae", "gynaec", "bone", "ortho"],
+                            "burn":     ["eye", "ophthalm", "dental", "maternity", "gynae", "gynaec", "children", "child", "ortho"],
+                            "cardiac":  ["eye", "ophthalm", "dental", "skin", "maternity", "gynae", "gynaec", "ortho"],
+                            "trauma":   ["eye", "ophthalm", "dental", "skin", "cancer", "maternity", "gynae", "gynaec"],
+                            "general":  ["eye", "ophthalm", "dental", "skin", "cancer"],
+                        }
+                        exclude_words = exclude_map.get(injury_type.lower(), [])
+                        
+                        seen, results = set(), []
+                        for el in data:
+                            name = el.get("name", "").strip()
+                            if not name or name in seen:
+                                continue
+                            # Skip hospitals that are clearly unrelated specialties
+                            name_lower = name.lower()
+                            if any(excl in name_lower for excl in exclude_words):
+                                logger.info(f"Skipping unrelated hospital: {name}")
+                                continue
+                            seen.add(name)
+                            results.append(name)
+                            if len(results) >= 3:
+                                break
+                        return results
+                
+                # Step 1: Try specialty search first
+                unique_hospitals = await fetch_hospitals(keyword)
+                
+                # Step 2: If specialty returns nothing, fallback to generic "hospital"
+                used_keyword = keyword
+                if not unique_hospitals and keyword != "hospital":
+                    logger.info(f"Specialty '{keyword}' not found, falling back to generic hospital")
+                    unique_hospitals = await fetch_hospitals("hospital")
+                    used_keyword = "hospital"
+                    
+                if unique_hospitals is None:
+                    return f"API Down. Tell the user in Hindi: 'सर्वर डाउन है। आप Google Maps पर {district} में {keyword} ढूंढ सकते हैं।'"
+                    
+                if not unique_hospitals:
+                    return (
+                        f"No hospitals found near {district}. "
+                        f"Tell the user in Hindi to search Google Maps: '{maps_link}' or call 112 for emergency."
+                    )
+                    
+                hospitals_str = "\n- ".join(unique_hospitals)
+                
+                # Add specialty advice if we fell back to generic
+                specialty_advice = ""
+                if used_keyword == "hospital" and keyword != "hospital":
+                    specialty_map_advice = {
+                        "orthopedic hospital": "इन अस्पतालों में Orthopedic (हड्डी) विभाग ज़रूर होगा।",
+                        "neurology hospital": "इन अस्पतालों में Neurology (न्यूरो) विभाग ज़रूर होगा।",
+                        "burn hospital": "इन अस्पतालों में Burn विभाग होगा।",
+                        "cardiac hospital": "इन अस्पतालों में Cardiac विभाग होगा।",
+                        "trauma center hospital": "इन अस्पतालों में Trauma/Emergency विभाग होगा।",
+                    }
+                    specialty_advice = specialty_map_advice.get(keyword, "")
+                
+                return (
+                    f"Nearest hospitals for {injury_type} in {district}:\n"
+                    f"- {hospitals_str}\n"
+                    f"Specialty Note: {specialty_advice}\n"
+                    f"Google Maps Link: {maps_link}\n"
+                    f"Instructions: Read the hospital names naturally in Hindi Devanagari. "
+                    f"If specialty_advice is not empty, say it in Hindi. "
+                    f"Tell the user to Google Maps search for phone numbers. "
+                    f"Remind them to call 112 for life-threatening emergencies."
+                )
+        except Exception as e:
+            logger.error(f"Hospital API error: {e}")
+            return "API Timeout/Error. Tell the user in Hindi: 'माफ़ करना, नेटवर्क समस्या के कारण मैं अभी अस्पताल का डेटा नहीं ला पा रही हूँ। आप 112 पर कॉल करें।'"
 
 
 server = AgentServer()

@@ -1,0 +1,1 @@
+[["प्रथमेश", "प्रथमेश", "Hindi", "घर में कुछ लोग हैं, लोकेशन अभी पूरी तरह अपडेटेड नहीं है।", "2026-08-09T12:18:56.562081"], ["Aryan", "Aryan", "Hindi", "Location: Nashik, Maharashtra. New caller.", "2026-08-09T12:37:55.325262"], ["Prathamesh", "Prathamesh", "Hindi", "Location: Delhi, Household size: 10 people, Emergency: Earthquake", "2026-08-09T12:42:41.775535"]]
