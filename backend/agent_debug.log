@@ -5871,3 +5871,55 @@ Traceback (most recent call last):
 Exception: worker connection closed unexpectedly
 2026-08-10 12:56:31,482 - livekit.agents - INFO - registered worker
 2026-08-10 12:56:31,488 - livekit.agents - INFO - registered worker
+2026-08-10 13:03:14,979 - asyncio - DEBUG - Using proactor: IocpProactor
+2026-08-10 13:03:14,980 - asyncio - DEBUG - Using proactor: IocpProactor
+2026-08-10 13:03:14,998 - livekit.agents - INFO - starting worker
+2026-08-10 13:03:15,000 - livekit.agents - INFO - starting inference executor
+2026-08-10 13:03:15,001 - livekit.agents - INFO - starting inference executor
+2026-08-10 13:03:15,022 - livekit.agents - INFO - initializing process
+2026-08-10 13:03:15,022 - livekit.agents - INFO - initializing process
+2026-08-10 13:03:15,008 - livekit.agents - ERROR - Error in _read_ipc_task
+Traceback (most recent call last):
+  File "D:\murf ai\MurfAI\backend\.venv\Lib\site-packages\livekit\agents\utils\aio\duplex_unix.py", line 35, in recv_bytes
+    len_bytes = await self._reader.readexactly(4)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sai\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\streams.py", line 767, in readexactly
+    raise exceptions.IncompleteReadError(incomplete, n)
+asyncio.exceptions.IncompleteReadError: 0 bytes read on a total of 4 expected bytes
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\murf ai\MurfAI\backend\.venv\Lib\site-packages\livekit\agents\utils\log.py", line 17, in async_fn_logs
+    return await fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\murf ai\MurfAI\backend\.venv\Lib\site-packages\livekit\agents\cli\watcher.py", line 136, in _read_ipc_task
+    msg = await channel.arecv_message(self._pch, proto.IPC_MESSAGES)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\murf ai\MurfAI\backend\.venv\Lib\site-packages\livekit\agents\ipc\channel.py", line 47, in arecv_message
+    return _read_message(await dplx.recv_bytes(), messages)
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\murf ai\MurfAI\backend\.venv\Lib\site-packages\livekit\agents\utils\aio\duplex_unix.py", line 43, in recv_bytes
+    raise DuplexClosed() from e
+livekit.agents.utils.aio.duplex_unix.DuplexClosed
+2026-08-10 13:03:23,033 - livekit.agents - DEBUG - initializing inference runner
+2026-08-10 13:03:23,059 - livekit.agents - DEBUG - initializing inference runner
+2026-08-10 13:03:30,186 - livekit.agents - DEBUG - inference runner initialized
+2026-08-10 13:03:30,188 - livekit.agents - INFO - process initialized
+2026-08-10 13:03:30,194 - livekit.agents - INFO - HTTP server listening on :56523
+2026-08-10 13:03:30,248 - livekit.agents - DEBUG - inference runner initialized
+2026-08-10 13:03:30,249 - livekit.agents - INFO - process initialized
+2026-08-10 13:03:30,254 - livekit.agents - INFO - HTTP server listening on :56528
+2026-08-10 13:03:30,367 - livekit.agents - INFO - registered worker
+2026-08-10 13:03:30,382 - livekit.agents - INFO - registered worker
+2026-08-10 13:07:22,363 - asyncio - DEBUG - Using proactor: IocpProactor
+2026-08-10 13:07:22,413 - livekit.agents - DEV - Watching D:\murf ai\MurfAI\backend\src
+2026-08-10 13:07:28,828 - asyncio - DEBUG - Using proactor: IocpProactor
+2026-08-10 13:07:28,847 - livekit.agents - INFO - starting worker
+2026-08-10 13:07:28,850 - livekit.agents - INFO - starting inference executor
+2026-08-10 13:07:28,870 - livekit.agents - INFO - initializing process
+2026-08-10 13:07:35,605 - livekit.agents - DEBUG - initializing inference runner
+2026-08-10 13:07:41,435 - livekit.agents - DEBUG - inference runner initialized
+2026-08-10 13:07:41,436 - livekit.agents - INFO - process initialized
+2026-08-10 13:07:41,441 - livekit.agents - INFO - HTTP server listening on :63271
+2026-08-10 13:07:41,658 - livekit.agents - INFO - registered worker
