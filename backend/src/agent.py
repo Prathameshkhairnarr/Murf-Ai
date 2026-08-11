@@ -1,5 +1,11 @@
-import logging
 import sys
+
+# Force UTF-8 encoding for Windows console to prevent crash on Hindi characters
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
+import logging
 import io
 import aiohttp
 
@@ -93,12 +99,8 @@ Ek successful call mein teen cheezein honi chahiye:
 
 OUTBOUND CALL (jab tum khud call karti ho)
 Agar metadata mein "outbound_alert" likha ho, toh tumne yeh call ki hai — user ne nahi.
-Pehle 2 sentences mein LAZMI ye 3 cheezein batao:
-1. Kaun hai (Rakshika — NDRF ki taraf se)
-2. Kyun call ki (district mein aapatkaalin suchna hai)
-3. Band kaise kare (agar nahi sunna toh "band karo" bolein)
-
-Example opening: "नमस्ते, मैं रक्षिका हूँ — NDRF की तरफ से। आपके जिले में एक आपातकालीन सूचना है। अगर आप यह कॉल नहीं सुनना चाहते, तो बस 'बंद करो' बोलें।"
+Jab call start ho toh sidha alert mat do. Pehle poocho ki kya unse pehle baat hui hai aur unka naam pucho.
+Example opening: "नमस्ते। मैं रक्षिका हूँ, NDRF की तरफ से। क्या मेरी आपसे पहले बात हुई है? कृपया अपना नाम बताएँ।"
 
 
 KNOWLEDGE
@@ -429,7 +431,7 @@ def prewarm(proc: JobProcess):
 server.setup_fnc = prewarm
 
 
-@server.rtc_session(agent_name="my-agent")
+@server.rtc_session(agent_name="rakshika-agent")
 async def my_agent(ctx: JobContext):
     # Logging setup
     # Add any other context you want in all log entries here
@@ -503,10 +505,42 @@ async def my_agent(ctx: JobContext):
     # Join the room and connect to the user
     await ctx.connect()
 
-    # First-turn greeting in Devanagari — hi-IN-namrita (native Hindi voice) pronounces this perfectly
-    await session.generate_reply(
-        instructions="You are Rakshika, a female assistant. Say this greeting EXACTLY in Devanagari Hindi: 'नमस्ते। मैं रक्षिका हूँ, NDRF की emergency voice assistant। क्या हम पहले बात कर चुके हैं? आपका नाम या फोन नंबर क्या है?' Write only in Devanagari script."
-    )
+    logger.info("Waiting up to 30 seconds for user to connect and publish audio...")
+    import asyncio
+    async def wait_for_user_audio():
+        timeout = 30.0
+        start_time = asyncio.get_event_loop().time()
+        while True:
+            if asyncio.get_event_loop().time() - start_time > timeout:
+                logger.info("Timeout waiting for audio track. Proceeding anyway.")
+                return
+            for p in ctx.room.remote_participants.values():
+                if p.kind != rtc.ParticipantKind.PARTICIPANT_KIND_AGENT:
+                    for pub in p.track_publications.values():
+                        if pub.kind == rtc.TrackKind.KIND_AUDIO and pub.subscribed:
+                            return
+            await asyncio.sleep(0.5)
+
+    await wait_for_user_audio()
+    logger.info("User audio track connected or timed out! Waiting 2 seconds for SIP RTP to establish...")
+    await asyncio.sleep(2)
+    logger.info("Sending greeting now...")
+
+    # Check if this is an outbound alert call
+    metadata = ctx.job.metadata if hasattr(ctx.job, "metadata") else ""
+    greeting_instructions = "कृपया हिंदी में ग्रीट करें।"
+    is_outbound = metadata == "outbound_alert"
+
+    if is_outbound:
+        greeting_instructions = "नमस्ते। मैं रक्षिका हूँ, NDRF की तरफ से। क्या मेरी आपसे पहले बात हुई है? कृपया अपना नाम बताएँ।"
+    else:
+        greeting_instructions = (
+            "You are Rakshika, a female assistant. Say this greeting EXACTLY in Devanagari Hindi: "
+            "'नमस्ते। मैं रक्षिका हूँ, NDRF की emergency voice assistant। क्या हम पहले बात कर चुके हैं? आपका नाम या फोन नंबर क्या है?' Write only in Devanagari script."
+        )
+
+    # First-turn greeting
+    await session.generate_reply(instructions=greeting_instructions)
 
     @session.on("metrics_collected")
     def on_metrics_collected(metrics):
