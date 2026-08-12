@@ -7,6 +7,7 @@ if sys.platform == "win32":
 
 import logging
 import io
+import random
 import aiohttp
 
 from dotenv import load_dotenv
@@ -61,6 +62,20 @@ def init_db():
             last_interaction TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS escalations (
+            reference_id TEXT PRIMARY KEY,
+            caller_name TEXT,
+            caller_id TEXT,
+            summary TEXT,
+            urgency TEXT DEFAULT 'medium',
+            status TEXT DEFAULT 'open',
+            what_agent_checked TEXT,
+            followup_method TEXT DEFAULT 'callback',
+            language TEXT DEFAULT 'Hindi',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -71,7 +86,7 @@ Tumhara naam Rakshika (रक्षिका) hai — NDRF (National Disaster Re
 CRITICAL RULE: Apna naam hamesha 'रक्षिका' (Rakshika) hi bolna, galti se bhi 'रक्षा' (Raksha) mat bolna.
 
 MEMORY & RETRIEVAL (DAY 4)
-Tumhare paas 5 TOOLS hain: 'lookup_caller', 'save_caller_info', 'check_weather_alert', 'check_earthquake', aur 'find_nearest_hospital'.
+Tumhare paas 7 TOOLS hain: 'lookup_caller', 'save_caller_info', 'check_weather_alert', 'check_earthquake', 'find_nearest_hospital', 'create_escalation', aur 'check_escalation_status'.
 1. Jab caller connect kare, pehle unka naam ya phone number poocho.
 2. Jab caller apna naam ya number bataye, toh tumhara SABSE PEHLA kaam hai 'lookup_caller' TOOL ko execute karna. (Bina tool chalaye unhe directly jawab mat dena. Tool chalao, aur fir uske result ke hisaab se aage ki baat karo).
 2a. Agar caller mausam (weather), flood, ya kisi safety alert ke baare mein pooche toh 'check_weather_alert' TOOL ka use karo (is tool mein district ka naam pass karna hoga).
@@ -89,7 +104,27 @@ FORBIDDEN: Kisi bhi hospital ka naam khud se mat batao. HAMESHA tool call karo p
 4. Agar caller naya hai, toh unki location, household size, mobility needs aadi collect karo.
 5. CRITICAL: Save karne se PEHLE unse permission lo: "मैं आपकी जानकारी सेव कर रही हूँ ताकि अगली बार मदद मिल सके। क्या आप सहमत हैं?"
 6. Jab caller 'Haan' bole, toh LAZMI 'save_caller_info' TOOL ko execute karo! Tool trigger karne ke baad unhe confirm karo (bol kar) ki data save ho gaya hai, aur unke sawalon ka jawab do.
-7. MEGA CRITICAL: Tools ('lookup_caller', 'save_caller_info', 'check_weather_alert', 'check_earthquake', 'find_nearest_hospital') ke arguments (jaise user_id, name, facts, district) HAMESHA English/Roman letters mein dena. Devanagari (Hindi letters) arguments mein BHOOL KAR BHI MAT DENA, system crash ho jayega! (Example: district="Mumbai" use karo, "मुंबई" nahi).
+7. MEGA CRITICAL: Tools ke arguments (jaise user_id, name, facts, district, summary) HAMESHA English/Roman letters mein dena. Devanagari (Hindi letters) arguments mein BHOOL KAR BHI MAT DENA, system crash ho jayega! (Example: district="Mumbai" use karo, "मुंबई" nahi).
+
+HUMAN ESCALATION (DAY 7)
+Tum har problem khud solve nahi kar sakti. Kuch situations mein tumhe INSAAN ki madad maangni hogi. Ye 2 situations hain jab tum LAZMI 'create_escalation' TOOL use karogi:
+
+SITUATION 1 — CALLER TRAPPED (fasa hua hai):
+Agar caller bole ki wo kahin fasa hua hai (paani mein, rubble mein, building mein, ya koi jagah se nikal nahi pa raha), toh ye tumhari capability se bahar hai. Tum physically rescue nahi kar sakti.
+
+SITUATION 2 — SEVERE INJURY (gambhir chot):
+Agar caller bole ki koi bahut badly injured hai (bahut khoon beh raha hai, hosh nahi hai, sans nahi le pa raha, ya jaan ka khatra lag raha hai), toh tum sirf hospital suggest kar sakti ho lekin actual medical help bhej nahi sakti.
+
+ESCALATION RULES:
+1. Jab in dono mein se koi bhi situation detect ho, toh PEHLE caller ko batao ki tum kya information human team ko bhejogi. Example: "आपकी स्थिति गंभीर है। मैं आपका नाम, लोकेशन, और क्या हुआ यह जानकारी हमारी इमरजेंसी रेस्क्यू टीम को भेजना चाहती हूँ। क्या आप इजाज़त देते हैं?"
+2. CRITICAL: Agar caller "nahi" ya "mana" kare, toh KABHI BHI create_escalation tool mat chalao. Sirf 112 ka number bata do.
+3. Agar caller "haan" bole, TAB create_escalation tool call karo with proper summary.
+4. Tool call karne ke baad caller ko Reference ID bolo aur batao: "आपकी रिक्वेस्ट भेज दी गई है। आपका रेफरेंस नंबर [ID] है। हमारी टीम जल्द से जल्द आपसे संपर्क करेगी। कृपया तब तक सुरक्षित रहें।"
+5. KABHI BHI ye promise mat karo ki team "5 minute mein" ya kisi exact time par aayegi.
+6. Urgency levels: "emergency" (jaan ka khatra), "high" (gambhir chot), "medium" (trapped but stable), "low" (general help).
+7. Summary mein KABHI BHI passwords, OTP, PIN, Aadhaar number, ya bank details mat likho.
+8. Agar caller apni escalation ka status jaanna chahe toh 'check_escalation_status' tool use karo.
+9. Normal conversations mein (jaise weather check, general information) KABHI BHI escalation mat banao.
 
 OBJECTIVES
 Ek successful call mein teen cheezein honi chahiye:
@@ -129,8 +164,7 @@ Hard refusals:
 
 Escalation script (jab situation tumhari help se bahar ho):
 "Bhai, yeh meri range se bahar hai. Abhi ek kaam karein — 112 pe call karein. Woh aapki seedhi madad kar sakte hain."
-
-Agar kisi ki jaan turant khatre mein ho, toh PEHLE yeh kaho: "Abhi 112 pe call karein" — uske baad baaki help dena.
+Agar kisi ki jaan turant khatre mein ho, toh PEHLE yeh kaho: "Abhi 112 pe call karein" — uske baad 'create_escalation' tool chalao (permission lekar).
 
 STYLE
 - Phone numbers ko hamesha ek ek digit karke bolo. Jaise "1-1-2" ko "ek, ek, do" bolo. Kabhi bhi "ek sau barah" ya "unsat hazar" mat bolo.
@@ -143,8 +177,9 @@ STYLE
 
 
 class Assistant(Agent):
-    def __init__(self) -> None:
+    def __init__(self, room=None) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
+        self._room = room
 
     @function_tool
     async def lookup_caller(self, context: RunContext, user_id: str):
@@ -420,6 +455,138 @@ class Assistant(Agent):
             logger.error(f"Hospital API error: {e}")
             return "API Timeout/Error. Tell the user in Hindi: 'माफ़ करना, नेटवर्क समस्या के कारण मैं अभी अस्पताल का डेटा नहीं ला पा रही हूँ। आप 112 पर कॉल करें।'"
 
+    @function_tool
+    async def create_escalation(
+        self,
+        context: RunContext,
+        caller_name: str,
+        caller_id: str,
+        summary: str,
+        urgency: str = "medium",
+        what_agent_checked: str = "",
+        followup_method: str = "callback",
+        language: str = "Hindi",
+    ):
+        """Use this tool to escalate a situation to a human rescue team. Only call this AFTER getting the caller's explicit permission.
+
+        Args:
+            caller_name: The caller's name (in English/Roman letters).
+            caller_id: The caller's phone number or unique ID (in English/Roman letters).
+            summary: A short summary of what happened and what help is needed (in English). Do NOT include passwords, OTPs, PINs, Aadhaar, or bank details.
+            urgency: The urgency level. One of: 'emergency' (life threat), 'high' (severe injury), 'medium' (trapped but stable), 'low' (general help needed).
+            what_agent_checked: What the agent already did for the caller (e.g., 'checked weather alert, suggested hospital').
+            followup_method: How the human team should follow up. One of: 'callback', 'sms', 'dispatch_team'.
+            language: The caller's preferred language (e.g., 'Hindi', 'English').
+        """
+        # Generate a unique reference ID like REQ-4582
+        ref_id = f"REQ-{random.randint(1000, 9999)}"
+        logger.info(f"[ESCALATION] Creating escalation {ref_id} for {caller_name} | Urgency: {urgency}")
+
+        # Check for duplicate open escalations for same caller
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT reference_id, status FROM escalations WHERE caller_id = ? AND status = 'open' ORDER BY created_at DESC LIMIT 1",
+            (caller_id,),
+        )
+        existing = cursor.fetchone()
+        if existing:
+            # Update existing escalation instead of creating duplicate
+            old_ref = existing[0]
+            cursor.execute(
+                "UPDATE escalations SET summary = ?, urgency = ?, what_agent_checked = ?, created_at = ? WHERE reference_id = ?",
+                (summary, urgency, what_agent_checked, datetime.now().isoformat(), old_ref),
+            )
+            conn.commit()
+            conn.close()
+            logger.info(f"[ESCALATION] Updated existing escalation {old_ref} instead of creating duplicate")
+
+            # Send signal to frontend for calling animation (even on update)
+            try:
+                if self._room and self._room.local_participant:
+                    escalation_data = json.dumps({
+                        "type": "escalation_alert",
+                        "reference_id": old_ref,
+                        "caller_name": caller_name,
+                        "urgency": urgency,
+                        "summary": summary,
+                    }).encode("utf-8")
+                    await self._room.local_participant.publish_data(escalation_data, reliable=True)
+                    logger.info(f"[ESCALATION] Sent escalation signal to frontend for {old_ref}")
+            except Exception as e:
+                logger.warning(f"[ESCALATION] Could not send signal to frontend: {e}")
+
+            return (
+                f"An open request already exists for this caller. Updated request {old_ref} with new details.\n"
+                f"Reference ID: {old_ref}\n"
+                f"Tell the caller in Hindi: 'आपकी पहले से एक रिक्वेस्ट खुली है, रेफरेंस नंबर {old_ref}। मैंने उसे अपडेट कर दिया है। हमारी टीम जल्द से जल्द आपसे संपर्क करेगी।'"
+            )
+
+        # Save new escalation
+        now = datetime.now().isoformat()
+        cursor.execute(
+            "INSERT INTO escalations (reference_id, caller_name, caller_id, summary, urgency, status, what_agent_checked, followup_method, language, created_at) VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)",
+            (ref_id, caller_name, caller_id, summary, urgency, what_agent_checked, followup_method, language, now),
+        )
+        conn.commit()
+        conn.close()
+
+        # Send signal to frontend for calling animation
+        try:
+            if self._room and self._room.local_participant:
+                escalation_data = json.dumps({
+                    "type": "escalation_alert",
+                    "reference_id": ref_id,
+                    "caller_name": caller_name,
+                    "urgency": urgency,
+                    "summary": summary,
+                }).encode("utf-8")
+                await self._room.local_participant.publish_data(escalation_data, reliable=True)
+                logger.info(f"[ESCALATION] Sent escalation signal to frontend for {ref_id}")
+        except Exception as e:
+            logger.warning(f"[ESCALATION] Could not send signal to frontend: {e}")
+
+        logger.info(f"[ESCALATION] Saved escalation {ref_id} to database")
+        return (
+            f"Escalation created successfully!\n"
+            f"Reference ID: {ref_id}\n"
+            f"Urgency: {urgency}\n"
+            f"Status: open\n"
+            f"Tell the caller in Hindi: 'आपकी रिक्वेस्ट भेज दी गई है। आपका रेफरेंस नंबर {ref_id} है। "
+            f"हमारी रेस्क्यू टीम जल्द से जल्द आपसे संपर्क करेगी। कृपया तब तक सुरक्षित रहें और 1-1-2 पर कॉल करें।' "
+            f"Do NOT promise an exact time for the rescue team to arrive."
+        )
+
+    @function_tool
+    async def check_escalation_status(self, context: RunContext, reference_id: str):
+        """Use this tool to check the status of a previously created escalation request.
+
+        Args:
+            reference_id: The reference ID of the escalation (e.g., 'REQ-4582').
+        """
+        logger.info(f"[ESCALATION] Checking status for {reference_id}")
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT caller_name, summary, urgency, status, created_at FROM escalations WHERE reference_id = ?",
+            (reference_id,),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            name, summary, urgency, status, created = row
+            status_hindi = {"open": "खुली", "in_progress": "प्रगति में", "resolved": "हल हो गई"}.get(status, status)
+            return (
+                f"Escalation {reference_id}:\n"
+                f"Caller: {name}\n"
+                f"Summary: {summary}\n"
+                f"Urgency: {urgency}\n"
+                f"Status: {status}\n"
+                f"Created: {created}\n"
+                f"Tell the caller in Hindi: 'आपकी रिक्वेस्ट {reference_id} की स्थिति: {status_hindi}। हमारी टीम इस पर काम कर रही है।'"
+            )
+        return f"No escalation found with reference ID {reference_id}. Tell the caller in Hindi that this reference number was not found."
+
 
 server = AgentServer()
 
@@ -488,7 +655,7 @@ async def my_agent(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(),
+        agent=Assistant(room=ctx.room),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(

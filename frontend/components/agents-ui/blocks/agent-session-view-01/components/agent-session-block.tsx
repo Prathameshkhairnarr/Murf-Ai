@@ -10,6 +10,7 @@ import {
 } from '@/components/agents-ui/agent-control-bar';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { cn } from '@/lib/shadcn/utils';
+import { EscalationOverlay } from '@/components/app/escalation-overlay';
 import { TileLayout } from './tile-view';
 
 const MotionMessage = motion.create(Shimmer);
@@ -321,6 +322,9 @@ export function AgentSessionView_01({
           />
         </div>
       </motion.div>
+
+      {/* Escalation calling animation overlay */}
+      <EscalationOverlay />
     </section>
   );
 }
