@@ -273,15 +273,25 @@ export const WelcomeView = ({
             }}
             className="flex flex-col items-center gap-4"
           >
-            <button
-              id="start-emergency-call"
-              onClick={handleStart}
-              className="group relative overflow-hidden rounded-full bg-red-600 px-12 py-4 text-base font-bold tracking-wide text-white shadow-2xl shadow-red-900/60 transition-all duration-300 hover:bg-red-500 hover:shadow-red-700/60 hover:scale-105 active:scale-100"
-            >
-              {/* Button glow on hover */}
-              <span className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity group-hover:opacity-100" />
-              <span className="relative">{callEnded ? 'Start New Call' : startButtonText}</span>
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <button
+                id="start-emergency-call"
+                onClick={handleStart}
+                className="group relative overflow-hidden rounded-full bg-red-600 px-12 py-4 text-base font-bold tracking-wide text-white shadow-2xl shadow-red-900/60 transition-all duration-300 hover:bg-red-500 hover:shadow-red-700/60 hover:scale-105 active:scale-100"
+              >
+                <span className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity group-hover:opacity-100" />
+                <span className="relative">{callEnded ? 'Start New Call' : startButtonText}</span>
+              </button>
+              
+              <a
+                href="/dashboard"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group rounded-full border border-white/20 bg-white/5 px-10 py-4 text-base font-bold tracking-wide text-white backdrop-blur-md transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:scale-105 active:scale-100"
+              >
+                View Dashboard
+              </a>
+            </div>
 
             <p className="font-mono text-sm uppercase tracking-widest text-gray-500">
               Murf Falcon · LiveKit · Deepgram Nova-3

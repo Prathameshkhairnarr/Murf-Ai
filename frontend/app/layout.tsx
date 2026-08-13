@@ -71,34 +71,6 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           enableSystem={false}
           disableTransitionOnChange
         >
-          <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-between p-6 md:flex">
-            <div className="flex items-center gap-4">
-              <img src={logoDark ?? logo} alt={`${companyName} Logo`} className="size-8" />
-              <span className="font-mono text-lg font-bold tracking-widest uppercase text-red-500 drop-shadow-md">
-                RAKSHIKA · NDRF
-              </span>
-            </div>
-            <span className="text-muted-foreground font-mono text-xs font-bold tracking-wider uppercase">
-              Powered by{' '}
-              <a
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://murf.ai"
-                className="text-red-400 underline underline-offset-4 hover:text-red-300"
-              >
-                Murf Falcon
-              </a>
-              {' '}·{' '}
-              <a
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://docs.livekit.io/agents"
-                className="underline underline-offset-4 hover:text-foreground"
-              >
-                LiveKit
-              </a>
-            </span>
-          </header>
 
           {children}
           <div className="group fixed bottom-0 left-1/2 z-50 mb-2 -translate-x-1/2">

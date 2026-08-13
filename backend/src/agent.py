@@ -76,6 +76,20 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS calls (
+            call_id TEXT PRIMARY KEY,
+            caller_id TEXT,
+            status TEXT,
+            issue_category TEXT DEFAULT 'General Safety',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    try:
+        cursor.execute("ALTER TABLE calls ADD COLUMN issue_category TEXT DEFAULT 'General Safety'")
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
     conn.commit()
     conn.close()
 
@@ -180,6 +194,8 @@ class Assistant(Agent):
     def __init__(self, room=None) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
         self._room = room
+        self.call_successful = False
+        self.primary_issue = "General Safety"
 
     @function_tool
     async def lookup_caller(self, context: RunContext, user_id: str):
@@ -210,6 +226,7 @@ class Assistant(Agent):
             facts: A short text summary of key facts (e.g., location, household size).
         """
         logger.info(f"Saving info for {user_id}")
+        
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         now = datetime.now().isoformat()
@@ -234,6 +251,7 @@ class Assistant(Agent):
             district: The name of the district/city (e.g., 'Mumbai', 'Delhi', 'Chennai').
         """
         logger.info(f"Checking weather alert for {district}")
+        self.primary_issue = "Weather Alerts"
         
         # Geocoding to get lat/long
         geocode_url = f"https://geocoding-api.open-meteo.com/v1/search?name={district}&count=1&language=en&format=json"
@@ -291,6 +309,7 @@ class Assistant(Agent):
             district: The name of the district/city (e.g., 'Delhi', 'Mumbai', 'Kathmandu').
         """
         logger.info(f"Checking earthquake for {district}")
+        self.primary_issue = "Rescue Esc."
         
         # Geocoding to get lat/long
         geocode_url = f"https://geocoding-api.open-meteo.com/v1/search?name={district}&count=1&language=en&format=json"
@@ -356,6 +375,7 @@ class Assistant(Agent):
                          'general' (for minor injuries or unknown).
         """
         logger.info(f"Finding {injury_type} hospital for {district}")
+        self.primary_issue = "Hospital Search"
         
         # Map injury type to a search keyword
         specialty_map = {
@@ -441,6 +461,7 @@ class Assistant(Agent):
                     }
                     specialty_advice = specialty_map_advice.get(keyword, "")
                 
+                self.call_successful = True
                 return (
                     f"Nearest hospitals for {injury_type} in {district}:\n"
                     f"- {hospitals_str}\n"
@@ -481,6 +502,7 @@ class Assistant(Agent):
         # Generate a unique reference ID like REQ-4582
         ref_id = f"REQ-{random.randint(1000, 9999)}"
         logger.info(f"[ESCALATION] Creating escalation {ref_id} for {caller_name} | Urgency: {urgency}")
+        self.primary_issue = "Rescue Esc."
 
         # Check for duplicate open escalations for same caller
         conn = sqlite3.connect(DB_PATH)
@@ -516,6 +538,7 @@ class Assistant(Agent):
             except Exception as e:
                 logger.warning(f"[ESCALATION] Could not send signal to frontend: {e}")
 
+            self.call_successful = True
             return (
                 f"An open request already exists for this caller. Updated request {old_ref} with new details.\n"
                 f"Reference ID: {old_ref}\n"
@@ -547,6 +570,8 @@ class Assistant(Agent):
             logger.warning(f"[ESCALATION] Could not send signal to frontend: {e}")
 
         logger.info(f"[ESCALATION] Saved escalation {ref_id} to database")
+        
+        self.call_successful = True
         return (
             f"Escalation created successfully!\n"
             f"Reference ID: {ref_id}\n"
@@ -606,6 +631,26 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
+    assistant = Assistant(room=ctx.room)
+
+    @ctx.room.on("participant_disconnected")
+    def on_participant_disconnected(participant: rtc.RemoteParticipant):
+        import uuid
+        call_id = str(uuid.uuid4())
+        status = "success" if assistant.call_successful else "failed"
+        category = assistant.primary_issue
+        logger.info(f"[CALL ANALYTICS] Call ended. Status: {status}, Category: {category} (Call ID: {call_id})")
+        
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO calls (call_id, caller_id, status, issue_category) VALUES (?, ?, ?, ?)", 
+                           (call_id, participant.identity, status, category))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.error(f"[CALL ANALYTICS] Error saving call outcome: {e}")
+
     # Set up a voice AI pipeline using Murf Falcon, Gemini, Deepgram, and the LiveKit turn detector
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
@@ -655,7 +700,7 @@ async def my_agent(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(room=ctx.room),
+        agent=assistant,
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
