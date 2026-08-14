@@ -8,6 +8,7 @@ import {
   useTracks,
   useVoiceAssistant,
 } from '@livekit/components-react';
+import { useActiveAgentTheme } from '@/components/hooks/useActiveAgentTheme';
 import { cn } from '@/lib/shadcn/utils';
 import { AudioVisualizer } from './audio-visualizer';
 
@@ -92,7 +93,8 @@ export function TileLayout({
   audioVisualizerGridColumnCount,
   audioVisualizerWaveLineWidth,
 }: TileLayoutProps) {
-  const { state, videoTrack: agentVideoTrack } = useVoiceAssistant();
+  const { state, videoTrack: agentVideoTrack, agent } = useVoiceAssistant();
+  const theme = useActiveAgentTheme();
   const [screenShareTrack] = useTracks([Track.Source.ScreenShare]);
   const cameraTrack: TrackReference | undefined = useLocalTrackRef(Track.Source.Camera);
 
@@ -104,6 +106,8 @@ export function TileLayout({
   const isAvatar = agentVideoTrack !== undefined;
   const videoWidth = agentVideoTrack?.publication.dimensions?.width ?? 0;
   const videoHeight = agentVideoTrack?.publication.dimensions?.height ?? 0;
+
+  const effectiveVisualizerColor: `#${string}` = theme.color === 'green' ? '#22c55e' : (audioVisualizerColor ?? '#ef4444');
 
   return (
     <div className="absolute inset-x-0 top-8 bottom-32 z-50 md:top-12 md:bottom-40">
@@ -133,7 +137,7 @@ export function TileLayout({
                   className={cn('relative aspect-square h-[90px]')}
                 >
                   <AudioVisualizer
-                    key="audio-visualizer"
+                    key={theme.color === 'green' ? 'shelter-visualizer-green' : 'rakshika-visualizer-red'}
                     initial={{ scale: 1 }}
                     animate={{ scale: chatOpen ? 0.2 : 1 }}
                     transition={{
@@ -141,8 +145,8 @@ export function TileLayout({
                       delay: animationDelay,
                     }}
                     audioVisualizerType={audioVisualizerType}
-                    audioVisualizerColor={audioVisualizerColor}
-                    audioVisualizerColorShift={audioVisualizerColorShift}
+                    audioVisualizerColor={effectiveVisualizerColor}
+                    audioVisualizerColorShift={theme.color === 'green' ? 0.05 : audioVisualizerColorShift}
                     audioVisualizerBarCount={audioVisualizerBarCount}
                     audioVisualizerRadialBarCount={audioVisualizerRadialBarCount}
                     audioVisualizerRadialRadius={audioVisualizerRadialRadius}
@@ -155,7 +159,7 @@ export function TileLayout({
                       'transition-[drop-shadow]',
                       chatOpen && 'shadow-2xl/10 delay-200'
                     )}
-                    style={{ color: audioVisualizerColor }}
+                    style={{ color: effectiveVisualizerColor }}
                   />
 
                   {/* Dynamic Status Indicator */}
@@ -166,23 +170,36 @@ export function TileLayout({
                       transition={{ delay: 0.5 }}
                       className="absolute left-1/2 top-1/2 mt-[140px] md:mt-[200px] -translate-x-1/2 text-center z-50"
                     >
-                      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-1.5 backdrop-blur-md">
-                        <span
-                          className={cn(
-                            'size-2 rounded-full animate-pulse',
-                            state === 'speaking' ? 'bg-red-500' : state === 'listening' ? 'bg-green-500' : 'bg-yellow-500'
-                          )}
-                        />
-                        <span className="font-mono text-xs uppercase tracking-widest text-gray-300 whitespace-nowrap">
-                          {state === 'speaking'
-                            ? 'Rakshika is speaking...'
-                            : state === 'listening'
-                              ? 'Listening to you...'
-                              : state === 'thinking'
-                                ? 'Thinking...'
-                                : 'Idle'}
-                        </span>
-                      </div>
+                      {(() => {
+                        const currentAgentName = theme.name;
+                        
+                        return (
+                          <div className={cn(
+                            "flex items-center gap-2 rounded-full border px-4 py-1.5 backdrop-blur-md transition-colors duration-500",
+                            theme.color === 'green' ? "border-emerald-500/30 bg-emerald-950/40 text-emerald-200" : "border-white/10 bg-black/40 text-gray-300"
+                          )}>
+                            <span
+                              className={cn(
+                                'size-2 rounded-full animate-pulse',
+                                state === 'speaking' 
+                                  ? (theme.color === 'green' ? 'bg-emerald-400' : 'bg-red-500') 
+                                  : state === 'listening' 
+                                    ? 'bg-green-500' 
+                                    : 'bg-yellow-500'
+                              )}
+                            />
+                            <span className="font-mono text-xs uppercase tracking-widest whitespace-nowrap">
+                              {state === 'speaking'
+                                ? `${currentAgentName} is speaking...`
+                                : state === 'listening'
+                                  ? 'Listening to you...'
+                                  : state === 'thinking'
+                                    ? `${currentAgentName} is thinking...`
+                                    : 'Idle'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </motion.div>
                   )}
                 </motion.div>
