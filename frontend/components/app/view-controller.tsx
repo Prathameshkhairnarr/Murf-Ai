@@ -42,6 +42,11 @@ export function ViewController({ appConfig }: ViewControllerProps) {
     }
   }, [isConnected]);
 
+  // We will handle dynamic colors inside AgentSessionView_01 to avoid context errors
+  let dynamicColor = resolvedTheme === 'dark'
+    ? appConfig.audioVisualizerColorDark
+    : appConfig.audioVisualizerColor;
+
   return (
     <AnimatePresence mode="wait">
       {/* Welcome / Call Ended view */}
@@ -65,11 +70,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
           supportsScreenShare={appConfig.supportsScreenShare}
           isPreConnectBufferEnabled={appConfig.isPreConnectBufferEnabled}
           audioVisualizerType={appConfig.audioVisualizerType}
-          audioVisualizerColor={
-            resolvedTheme === 'dark'
-              ? appConfig.audioVisualizerColorDark
-              : appConfig.audioVisualizerColor
-          }
+          audioVisualizerColor={dynamicColor}
           audioVisualizerColorShift={appConfig.audioVisualizerColorShift}
           audioVisualizerBarCount={appConfig.audioVisualizerBarCount}
           audioVisualizerGridRowCount={appConfig.audioVisualizerGridRowCount}

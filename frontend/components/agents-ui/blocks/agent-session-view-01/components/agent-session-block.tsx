@@ -2,7 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, type MotionProps, motion } from 'motion/react';
-import { useAgent, useSessionContext, useSessionMessages } from '@livekit/components-react';
+import { useAgent, useSessionContext, useSessionMessages, useVoiceAssistant, useParticipantAttributes } from '@livekit/components-react';
+import { useActiveAgentTheme } from '@/components/hooks/useActiveAgentTheme';
+import { ParticipantEvent } from 'livekit-client';
 import { AgentChatTranscript } from '@/components/agents-ui/agent-chat-transcript';
 import {
   AgentControlBar,
@@ -11,6 +13,7 @@ import {
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { cn } from '@/lib/shadcn/utils';
 import { EscalationOverlay } from '@/components/app/escalation-overlay';
+import { ConnectingOverlay } from '@/components/app/connecting-overlay';
 import { TileLayout } from './tile-view';
 
 const MotionMessage = motion.create(Shimmer);
@@ -211,7 +214,15 @@ export function AgentSessionView_01({
   const { messages } = useSessionMessages(session);
   const [chatOpen, setChatOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const { state: agentState } = useAgent();
+  
+  // Use useVoiceAssistant to get the agent participant directly
+  const { state: agentState, agent } = useVoiceAssistant();
+  const theme = useActiveAgentTheme();
+
+  // Determine dynamic visualizer color
+  const finalVisualizerColor: `#${string}` = theme.color === 'green' 
+    ? '#22c55e' 
+    : (audioVisualizerColor ?? '#ef4444');
 
   const controls: AgentControlBarControls = {
     leave: true,
@@ -242,11 +253,17 @@ export function AgentSessionView_01({
         aria-hidden
       >
         <div
-          className="absolute size-[600px] -translate-x-1/4 -translate-y-1/4 rounded-full bg-red-600/20 blur-[120px] animate-pulse"
+          className={cn(
+            "absolute size-[600px] -translate-x-1/4 -translate-y-1/4 rounded-full blur-[120px] animate-pulse transition-colors duration-1000",
+            theme.color === 'green' ? "bg-emerald-600/30" : "bg-red-600/20"
+          )}
           style={{ animationDuration: '6s' }}
         />
         <div
-          className="absolute size-[500px] translate-x-1/3 translate-y-1/4 rounded-full bg-blue-600/20 blur-[140px] animate-pulse"
+          className={cn(
+            "absolute size-[500px] translate-x-1/3 translate-y-1/4 rounded-full blur-[140px] animate-pulse transition-colors duration-1000",
+            theme.color === 'green' ? "bg-teal-600/30" : "bg-blue-600/20"
+          )}
           style={{ animationDuration: '8s' }}
         />
       </div>
@@ -274,7 +291,7 @@ export function AgentSessionView_01({
       <TileLayout
         chatOpen={chatOpen}
         audioVisualizerType={audioVisualizerType}
-        audioVisualizerColor={audioVisualizerColor}
+        audioVisualizerColor={finalVisualizerColor}
         audioVisualizerColorShift={audioVisualizerColorShift}
         audioVisualizerBarCount={audioVisualizerBarCount}
         audioVisualizerRadialBarCount={audioVisualizerRadialBarCount}
@@ -325,6 +342,9 @@ export function AgentSessionView_01({
 
       {/* Escalation calling animation overlay */}
       <EscalationOverlay />
+      
+      {/* Call transfer animation overlay */}
+      <ConnectingOverlay />
     </section>
   );
 }

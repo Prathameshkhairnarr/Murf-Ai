@@ -422,6 +422,8 @@ class AnalyticsHandler(BaseHTTPRequestHandler):
                 "Weather Alerts": 0,
                 "Hospital Search": 0,
                 "Rescue Esc.": 0,
+                "Shelter": 0,
+                "Health": 0,
                 "General Safety": 0
             }
             for r in cat_rows:

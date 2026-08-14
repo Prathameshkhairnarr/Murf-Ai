@@ -30,6 +30,8 @@ import json
 from datetime import datetime
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from shelter_specialist_agent import ShelterSpecialistAgent
+from health_specialist_agent import HealthSpecialistAgent
 
 # Setup File Logging for debugging
 file_handler = logging.FileHandler("agent_debug.log", encoding="utf-8")
@@ -146,6 +148,10 @@ Ek successful call mein teen cheezein honi chahiye:
 2. Unhe abhi ek clear, immediate action batao jo woh le sakein.
 3. Unhe sahi helpline se connect karo ya nearest relief camp ki direction do.
 
+SPECIALIST HANDOFFS (DAY 9)
+- अगर caller पूछे कि "मुझे कहाँ शरण मिलेगी" / "relief camp कहाँ है" / "मैं कहाँ जाऊं", तो उन्हें बताएं कि आप उन्हें शरण स्थल विशेषज्ञ आरव जी से जोड़ रही हैं, और transfer_to_shelter_specialist टूल का उपयोग करें। (CRITICAL: टूल का नाम बोलकर या लिखकर मत बताएं, जैसे `*(transfer...)*` का प्रयोग बिल्कुल न करें)।
+- अगर caller कोई health/medical समस्या बताए, तुरंत transfer मत कीजिए। पहले पूछिए: "क्या मैं आपको हमारे Health Specialist से जोड़ दूं?" और caller के जवाब का इंतज़ार कीजिए। अगर caller "हां"/सहमति दे, तो उन्हें बताएं कि आप उन्हें Health Specialist से जोड़ रही हैं, और transfer_to_health_specialist टूल इस्तेमाल कीजिए। (CRITICAL: टूल का नाम बोलकर या लिखकर मत बताएं)।
+
 OUTBOUND CALL (jab tum khud call karti ho)
 Agar metadata mein "outbound_alert" likha ho, toh tumne yeh call ki hai — user ne nahi.
 Jab call start ho toh sidha alert mat do. Pehle poocho ki kya unse pehle baat hui hai aur unka naam pucho.
@@ -191,11 +197,35 @@ STYLE
 
 
 class Assistant(Agent):
-    def __init__(self, room=None) -> None:
-        super().__init__(instructions=SYSTEM_PROMPT)
+    def __init__(self, room=None, chat_ctx=None) -> None:
+        super().__init__(instructions=SYSTEM_PROMPT, chat_ctx=chat_ctx)
         self._room = room
         self.call_successful = False
         self.primary_issue = "General Safety"
+
+    async def on_enter(self) -> None:
+        logger.info("[MAIN AGENT] on_enter called - setting female voice (hi-IN-namrita) and clearing specialist attributes")
+        logger.info(f"[MAIN AGENT] hasattr session tts: {hasattr(self.session, 'tts')}")
+        if hasattr(self.session, "tts"):
+            logger.info(f"[MAIN AGENT] hasattr update_options: {hasattr(self.session.tts, 'update_options')}")
+        if hasattr(self.session, "tts") and hasattr(self.session.tts, "update_options"):
+            self.session.tts.update_options(voice="hi-IN-namrita")
+            logger.info("[MAIN AGENT] update_options called with hi-IN-namrita")
+        if hasattr(self, "_room") and self._room and hasattr(self._room, "local_participant"):
+            await self._room.local_participant.set_attributes({
+                "active_agent_id": "rakshika_main",
+                "active_agent_name": "Rakshika",
+                "active_agent_theme": "red"
+            })
+            
+            import json
+            data = json.dumps({
+                "type": "agent_ready",
+                "active_agent_id": "rakshika_main",
+                "active_agent_name": "Rakshika",
+                "active_agent_theme": "red"
+            }).encode("utf-8")
+            await self._room.local_participant.publish_data(data, reliable=True)
 
     @function_tool
     async def lookup_caller(self, context: RunContext, user_id: str):
@@ -611,6 +641,65 @@ class Assistant(Agent):
                 f"Tell the caller in Hindi: 'आपकी रिक्वेस्ट {reference_id} की स्थिति: {status_hindi}। हमारी टीम इस पर काम कर रही है।'"
             )
         return f"No escalation found with reference ID {reference_id}. Tell the caller in Hindi that this reference number was not found."
+
+    @function_tool()
+    async def transfer_to_shelter_specialist(self, context: RunContext):
+        """Transfer the caller to the Shelter Information Specialist (Aarav). Use this ONLY when
+        the caller is asking where to go for shelter/relief camp, not for weather,
+        hospital, or rescue-team requests — those stay with you."""
+        self.primary_issue = "Shelter"
+        
+        try:
+            import asyncio
+            import json
+
+            # 2. Trigger connecting animation on frontend via data message
+            try:
+                if self._room and self._room.local_participant:
+                    data = json.dumps({
+                        "type": "agent_transfer",
+                        "to": "shelter"
+                    }).encode("utf-8")
+                    self._room.local_participant.publish_data(data, reliable=True)
+                    logger.info("[TRANSFER] Sent agent_transfer signal to frontend")
+            except Exception as e:
+                logger.warning(f"[TRANSFER] Could not send transfer signal to frontend: {e}")
+
+            # 3. Wait for Rakshika to finish speaking (approx 4.5 seconds)
+            await asyncio.sleep(4.5)
+
+            new_ctx = self.chat_ctx.copy(exclude_instructions=True) if hasattr(self, "chat_ctx") and self.chat_ctx else None
+            if not new_ctx and hasattr(self.session, "chat_ctx") and self.session.chat_ctx:
+                new_ctx = self.session.chat_ctx.copy(exclude_instructions=True)
+                
+            return (
+                ShelterSpecialistAgent(chat_ctx=new_ctx, room=self._room),
+                "Transferring to shelter specialist Aarav",
+            )
+        except Exception as e:
+            logger.error(f"[ERROR IN TRANSFER] {e}")
+            return f"Error transferring: {e}"
+
+    @function_tool()
+    async def transfer_to_health_specialist(self, context: RunContext):
+        """Call this ONLY after the caller has explicitly agreed to be connected to the
+        Health Specialist. Do not call this on the same turn you first ask permission."""
+        self.primary_issue = "Health"
+        try:
+            import asyncio
+            await asyncio.sleep(4.5)
+            
+            new_ctx = self.chat_ctx.copy(exclude_instructions=True) if hasattr(self, "chat_ctx") and self.chat_ctx else None
+            if not new_ctx and hasattr(self.session, "chat_ctx") and self.session.chat_ctx:
+                new_ctx = self.session.chat_ctx.copy(exclude_instructions=True)
+                
+            return (
+                HealthSpecialistAgent(chat_ctx=new_ctx, room=self._room),
+                "Transferring to health specialist with caller consent",
+            )
+        except Exception as e:
+            logger.error(f"[ERROR IN HEALTH TRANSFER] {e}")
+            return f"Error transferring: {e}"
 
 
 server = AgentServer()

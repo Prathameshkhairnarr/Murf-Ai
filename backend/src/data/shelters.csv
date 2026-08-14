@@ -1,0 +1,51 @@
+State,District,City,Shelter Name,Total Capacity,Available Beds,Contact Person,Contact Phone
+Maharashtra,Mumbai,Mumbai,"BMC Municipal School, Andheri East",500,120,Ramesh Kumar,9876543210
+Maharashtra,Mumbai,Mumbai,"Dharavi Community Center",800,45,Suresh Patel,9876543211
+Maharashtra,Pune,Pune,"PMC School, Shivaji Nagar",600,150,Amit Joshi,9876543220
+Maharashtra,Pune,Pune,"Balewadi Stadium Emergency Shelter",2500,800,Prakash Deshmukh,9876543221
+Maharashtra,Nashik,Nashik,"Rajiv Gandhi Bhavan Relief Camp",1000,300,Sanjay Jadhav,9876543222
+Maharashtra,Nashik,Nashik,"Panchavati Community Hall",400,50,Kiran Pawar,9876543223
+Maharashtra,Nashik,Nashik,"KTHM College Campus Shelter",1500,450,Dr. Rane,9876543224
+Maharashtra,Nagpur,Nagpur,"VCA Stadium Relief Camp",2000,500,Mohan Kulkarni,9876543225
+Maharashtra,Nagpur,Nagpur,"NMC Town Hall, Mahal",500,80,Anita Sharma,9876543226
+Delhi,North West,Delhi,"Govt Boys Senior Secondary School, Rohini",600,200,Anil Sharma,9876543212
+Delhi,East,Delhi,"Yamuna Sports Complex Relief Camp",1500,500,Rajesh Singh,9876543213
+Delhi,South West,Delhi,"Dwarka Sector 10 Community Center",800,150,Vikram Malhotra,9876543227
+Tamil Nadu,Chennai,Chennai,"Corporation School, Velachery",400,10,M. Karthik,9876543214
+Tamil Nadu,Chennai,Chennai,"Jawaharlal Nehru Stadium Indoor Camp",2000,1200,S. Kumar,9876543215
+Tamil Nadu,Coimbatore,Coimbatore,"Codissia Trade Fair Complex Shelter",3000,1500,R. Natarajan,9876543228
+West Bengal,Kolkata,Kolkata,"Salt Lake Stadium Emergency Camp",3000,800,Amit Bose,9876543216
+West Bengal,Kolkata,Kolkata,"Kolkata Municipal Corporation Hall",600,50,Priya Das,9876543217
+West Bengal,Howrah,Howrah,"Howrah Indoor Stadium Relief Center",1200,400,Subrata Sen,9876543229
+Karnataka,Bengaluru Urban,Bengaluru,"Kanteerava Stadium Relief Camp",1200,300,Naveen Gowda,9876543218
+Karnataka,Bengaluru Urban,Bengaluru,"BBMP Community Hall, Koramangala",300,0,Rekha N.,9876543219
+Karnataka,Mysuru,Mysuru,"Chamundi Vihar Stadium Camp",800,200,Prasad Rao,9876543230
+Gujarat,Ahmedabad,Ahmedabad,"Sardar Patel Stadium Relief Camp",4000,2000,Jignesh Patel,9876543231
+Gujarat,Ahmedabad,Ahmedabad,"AMC Community Hall, Navrangpura",500,100,Bhavna Shah,9876543232
+Gujarat,Surat,Surat,"SMC Community Center, Adajan",700,250,Ketan Desai,9876543233
+Uttar Pradesh,Lucknow,Lucknow,"KD Singh Babu Stadium Relief Camp",1500,450,Vijay Pratap Singh,9876543234
+Uttar Pradesh,Lucknow,Lucknow,"LMC Community Center, Gomti Nagar",400,20,Sunita Yadav,9876543235
+Uttar Pradesh,Kanpur,Kanpur,"Green Park Stadium Shelter",2000,600,Ravi Shukla,9876543236
+Uttar Pradesh,Varanasi,Varanasi,"Sampurnanand Stadium Camp",1000,300,Om Prakash,9876543237
+Rajasthan,Jaipur,Jaipur,"Sawai Mansingh Stadium Camp",2500,900,Rajendra Shekhawat,9876543238
+Rajasthan,Jaipur,Jaipur,"JMC Community Hall, Vaishali Nagar",500,150,Neelam Rathore,9876543239
+Rajasthan,Jodhpur,Jodhpur,"Barkatullah Khan Stadium Shelter",1500,500,Narayan Bishnoi,9876543240
+Bihar,Patna,Patna,"Moin-ul-Haq Stadium Camp",2000,700,Nitish Kumar Singh,9876543241
+Bihar,Patna,Patna,"Patna College Relief Center",800,200,Ajay Paswan,9876543242
+Madhya Pradesh,Bhopal,Bhopal,"TT Nagar Stadium Relief Camp",1500,400,Manish Tiwari,9876543243
+Madhya Pradesh,Bhopal,Bhopal,"BMC Community Hall, MP Nagar",600,100,Sonal Jain,9876543244
+Madhya Pradesh,Indore,Indore,"Nehru Stadium Relief Camp",2000,600,Rajat Chouhan,9876543245
+Assam,Kamrup Metropolitan,Guwahati,"Nehru Stadium Relief Camp",1200,350,Dipak Gogoi,9876543246
+Assam,Kamrup Metropolitan,Guwahati,"Gauhati University Emergency Shelter",1000,200,Pranab Borah,9876543247
+Kerala,Ernakulam,Kochi,"Jawaharlal Nehru Stadium, Kaloor",3000,1200,Jose Thomas,9876543248
+Kerala,Thiruvananthapuram,Thiruvananthapuram,"Chandrasekharan Nair Stadium Camp",1500,400,P. Nair,9876543249
+Kerala,Thiruvananthapuram,Thiruvananthapuram,"Corporation Hall, Palayam",500,50,Biju K.,9876543250
+Telangana,Hyderabad,Hyderabad,"GHMC Community Hall, Ameerpet",600,150,Mohammed Ali,9876543251
+Telangana,Hyderabad,Hyderabad,"Lal Bahadur Shastri Stadium Camp",2500,800,K. Reddy,9876543252
+Andhra Pradesh,Visakhapatnam,Visakhapatnam,"Port Stadium Relief Camp",1800,500,Venkata Rao,9876543253
+Andhra Pradesh,Vijayawada,Vijayawada,"Indira Gandhi Municipal Stadium Camp",1500,300,Srinivas Raju,9876543254
+Odisha,Khordha,Bhubaneswar,"Kalinga Stadium Relief Camp",2000,700,Pradeep Mohanty,9876543255
+Odisha,Khordha,Bhubaneswar,"BMC Community Center, Saheed Nagar",500,100,Susmita Das,9876543256
+Jharkhand,Ranchi,Ranchi,"Birsa Munda Athletics Stadium Camp",1500,450,Ramesh Munda,9876543257
+Chhattisgarh,Raipur,Raipur,"Swami Vivekanand Stadium Relief Camp",1200,350,Dinesh Sahu,9876543258
+Uttarakhand,Dehradun,Dehradun,"Parade Ground Relief Camp",1000,250,Rajiv Rawat,9876543259

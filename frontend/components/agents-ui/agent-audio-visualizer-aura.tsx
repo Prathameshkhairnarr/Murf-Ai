@@ -180,12 +180,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // Calculate angle for dynamic gradient
     float angle = atan(pos.y, pos.x);
     
-    // Mix primary color with a glowing warm gold/orange based on rotation
-    vec3 secondaryColor = vec3(1.0, 0.7, 0.1); 
-    float mixFactor = sin(angle * 2.0 + iTime) * 0.5 + 0.5;
+    // Dynamic secondary glow tint derived from uColor
+    vec3 secondaryColor = mix(uColor * 1.8 + vec3(0.1), vec3(1.0), 0.15); 
+    float mixFactor = sin(angle * 2.0 + iTime) * 0.4 + 0.4;
     
     // Apply the gradient map to the generated color
-    color = mix(color, color * secondaryColor * 2.5, mixFactor);
+    color = mix(color, color * secondaryColor * 1.8, mixFactor);
     
     float alpha = luma(color) * uMix;
     fragColor = vec4(color * uMix, alpha);
